@@ -3,6 +3,8 @@
 ## O que faz
 - Bloco "Bloco de Upgrade" (craftável, receita abaixo). Clique direito -> tela com botão **Upgrade**.
 - Ao apertar: terceira pessoa com câmera bem próxima, jogador na esquerda da tela (como na referência), voo sempre ligado, atravessar blocos e sem dano, tudo no survival.
+- Limite: no máximo 40 blocos do bloco de origem (`MAX_DISTANCIA` em `VooMod.java`). Passou disso, sai do modo sozinho.
+- Ao sair (botão, tecla V ou limite), o jogador volta ao ponto exato onde ativou o modo.
 - Para sair: tecla **V** (configurável em Controles -> "Modo Voo") ou abrir o bloco de novo (botão "Sair do modo").
   Ao sair dentro de blocos, o jogador sobe até o primeiro espaço livre.
 

@@ -19,19 +19,26 @@ import net.minecraft.item.ItemGroups;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.RegistryKeys;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
 
+import java.util.ArrayList;
 import java.util.function.Consumer;
 
 public class VooMod implements ModInitializer {
     public static final String MOD_ID = "voomod";
     public static final Identifier TOGGLE_PACKET = new Identifier(MOD_ID, "toggle");
     public static final Identifier SYNC_PACKET = new Identifier(MOD_ID, "sync");
+
+    /** Distância máxima (em blocos) do bloco de origem. Passou disso, sai do modo e volta. */
+    public static final double MAX_DISTANCIA = 40.0;
 
     public static Block UPGRADE_BLOCK;
     public static Item UPGRADE_BLOCK_ITEM;
@@ -58,10 +65,10 @@ public class VooMod implements ModInitializer {
                     boolean nearBlock = player.getWorld().getBlockState(pos).isOf(UPGRADE_BLOCK)
                             && player.squaredDistanceTo(Vec3d.ofCenter(pos)) <= 64.0;
                     if (nearBlock && !ModeState.isActive(player)) {
-                        setMode(player, true);
+                        enter(player, pos);
                     }
                 } else if (ModeState.isActive(player)) {
-                    setMode(player, false);
+                    leave(player, null);
                 }
             });
         });
@@ -70,7 +77,11 @@ public class VooMod implements ModInitializer {
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             ServerPlayerEntity p = handler.getPlayer();
             if (ModeState.isActive(p)) {
-                applyOn(p);
+                if (OriginData.of(server).get(p.getUuid()) == null) {
+                    leave(p, null); // sem origem salva: sai do modo
+                } else {
+                    applyOn(p);
+                }
             } else {
                 sendSync(p, false);
             }
@@ -79,6 +90,7 @@ public class VooMod implements ModInitializer {
         // Respawn (ex.: /kill) tira o modo
         ServerPlayerEvents.AFTER_RESPAWN.register((oldP, newP, alive) -> {
             newP.removeScoreboardTag(ModeState.TAG);
+            OriginData.of(newP.server).remove(newP.getUuid());
             sendSync(newP, false);
         });
 
@@ -90,10 +102,29 @@ public class VooMod implements ModInitializer {
             return true;
         });
 
-        // Segurança: sem queda e resgate se cair no void
+        // Limite de área, sem queda, resgate do void
         ServerTickEvents.END_SERVER_TICK.register(server -> {
-            for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
+            OriginData data = OriginData.of(server);
+            for (ServerPlayerEntity p : new ArrayList<>(server.getPlayerManager().getPlayerList())) {
                 if (!ModeState.isActive(p)) continue;
+
+                OriginData.Origin o = data.get(p.getUuid());
+                if (o == null) {
+                    leave(p, null);
+                    continue;
+                }
+
+                boolean outraDimensao = !p.getWorld().getRegistryKey().getValue().toString().equals(o.dim);
+                double dx = p.getX() - (o.block.getX() + 0.5);
+                double dy = p.getY() - (o.block.getY() + 0.5);
+                double dz = p.getZ() - (o.block.getZ() + 0.5);
+                boolean longe = dx * dx + dy * dy + dz * dz > MAX_DISTANCIA * MAX_DISTANCIA;
+
+                if (outraDimensao || longe) {
+                    leave(p, "Você saiu da área permitida (" + (int) MAX_DISTANCIA + " blocos). Voltando ao ponto de origem.");
+                    continue;
+                }
+
                 p.fallDistance = 0;
                 ServerWorld w = p.getServerWorld();
                 if (p.getY() < w.getBottomY() - 16) {
@@ -113,21 +144,44 @@ public class VooMod implements ModInitializer {
         sendSync(p, true);
     }
 
-    public static void setMode(ServerPlayerEntity p, boolean on) {
-        if (on) {
-            p.addCommandTag(ModeState.TAG);
-            applyOn(p);
-        } else {
-            p.removeScoreboardTag(ModeState.TAG);
-            p.interactionManager.getGameMode().setAbilities(p.getAbilities());
-            p.sendAbilitiesUpdate();
-            p.fallDistance = 0;
-            moveToSafeSpot(p);
-            sendSync(p, false);
+    /** Liga o modo e guarda de onde o jogador saiu. */
+    public static void enter(ServerPlayerEntity p, BlockPos block) {
+        String dim = p.getWorld().getRegistryKey().getValue().toString();
+        OriginData.of(p.server).put(p.getUuid(),
+                new OriginData.Origin(dim, p.getX(), p.getY(), p.getZ(), p.getYaw(), p.getPitch(), block));
+        p.addCommandTag(ModeState.TAG);
+        applyOn(p);
+    }
+
+    /** Desliga o modo e leva o jogador de volta ao ponto onde foi ativado. */
+    public static void leave(ServerPlayerEntity p, String message) {
+        OriginData data = OriginData.of(p.server);
+        OriginData.Origin o = data.get(p.getUuid());
+        data.remove(p.getUuid());
+
+        p.removeScoreboardTag(ModeState.TAG);
+        p.interactionManager.getGameMode().setAbilities(p.getAbilities());
+        p.sendAbilitiesUpdate();
+
+        if (o != null) {
+            ServerWorld w = p.server.getWorld(RegistryKey.of(RegistryKeys.WORLD, new Identifier(o.dim)));
+            if (w != null) {
+                p.teleport(w, o.x, o.y, o.z, o.yaw, o.pitch);
+            }
+        }
+
+        p.setVelocity(Vec3d.ZERO);
+        p.velocityModified = true;
+        p.fallDistance = 0;
+        moveToSafeSpot(p);
+        sendSync(p, false);
+
+        if (message != null) {
+            p.sendMessage(Text.literal(message), true);
         }
     }
 
-    /** Ao sair do modo dentro de blocos, sobe até achar espaço livre. */
+    /** Se o ponto de origem estiver bloqueado, sobe até achar espaço livre. */
     private static void moveToSafeSpot(ServerPlayerEntity p) {
         ServerWorld w = p.getServerWorld();
         Box box = p.getBoundingBox();

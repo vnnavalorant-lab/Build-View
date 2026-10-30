@@ -2,7 +2,7 @@
 
 ## O que faz
 - Bloco "Bloco de Upgrade" (craftável, receita abaixo). Clique direito -> tela com botão **Upgrade**.
-- Ao apertar: terceira pessoa com câmera mais perto (e levemente no ombro), voo, atravessar blocos e sem dano, tudo no survival.
+- Ao apertar: terceira pessoa com câmera bem próxima, jogador na esquerda da tela (como na referência), voo sempre ligado, atravessar blocos e sem dano, tudo no survival.
 - Para sair: tecla **V** (configurável em Controles -> "Modo Voo") ou abrir o bloco de novo (botão "Sair do modo").
   Ao sair dentro de blocos, o jogador sobe até o primeiro espaço livre.
 
@@ -19,7 +19,7 @@ Receita:  F E F / E D E / F E F   (F = pena, E = pérola do fim, D = diamante)
 Troque `src/main/resources/assets/voomod/textures/block/upgrade_block.png` (16x16).
 
 ## Ajustar a câmera
-`src/main/java/com/example/voomod/mixin/client/CameraMixin.java` -> DISTANCIA, OMBRO, ALTURA.
+`src/main/java/com/example/voomod/mixin/client/CameraMixin.java` -> DISTANCIA, OMBRO, ALTURA (a câmera não colide com blocos e não depende do fog).
 
 ## Build automático (GitHub Actions)
 Suba o projeto para um repositório no GitHub. O arquivo `.github/workflows/build.yml` compila a cada push.

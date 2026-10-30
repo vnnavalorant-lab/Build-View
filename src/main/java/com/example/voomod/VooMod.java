@@ -78,7 +78,7 @@ public class VooMod implements ModInitializer {
 
         // Respawn (ex.: /kill) tira o modo
         ServerPlayerEvents.AFTER_RESPAWN.register((oldP, newP, alive) -> {
-            newP.removeCommandTag(ModeState.TAG);
+            newP.removeScoreboardTag(ModeState.TAG);
             sendSync(newP, false);
         });
 
@@ -118,7 +118,7 @@ public class VooMod implements ModInitializer {
             p.addCommandTag(ModeState.TAG);
             applyOn(p);
         } else {
-            p.removeCommandTag(ModeState.TAG);
+            p.removeScoreboardTag(ModeState.TAG);
             p.interactionManager.getGameMode().setAbilities(p.getAbilities());
             p.sendAbilitiesUpdate();
             p.fallDistance = 0;

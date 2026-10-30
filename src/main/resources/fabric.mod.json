@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "voomod",
+  "version": "${version}",
+  "name": "Modo Voo",
+  "description": "Bloco com botão Upgrade: terceira pessoa, voo, atravessar blocos e imunidade a dano no survival.",
+  "authors": ["Voce"],
+  "license": "CC0-1.0",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["com.example.voomod.VooMod"],
+    "client": ["com.example.voomod.client.VooModClient"]
+  },
+  "mixins": ["voomod.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.14.21",
+    "minecraft": "~1.20.1",
+    "java": ">=17",
+    "fabric-api": "*"
+  }
+}

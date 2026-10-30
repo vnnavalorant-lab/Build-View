@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": ["FEF", "EDE", "FEF"],
+  "key": {
+    "F": { "item": "minecraft:feather" },
+    "E": { "item": "minecraft:ender_pearl" },
+    "D": { "item": "minecraft:diamond" }
+  },
+  "result": { "item": "voomod:upgrade_block", "count": 1 }
+}
